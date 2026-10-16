@@ -32,6 +32,10 @@
         <p><strong>Last updated:</strong> October 16, 2026</p>
         <h2>Information stored to create links</h2>
         <p>When you create a short link, QuietLink stores the destination URL and an expiry timestamp if you choose an expiry. A random short code points to that record. QuietLink does not ask for your name, email address, password, or account registration.</p>
+        <p>New links also have a private management key so the creator can revoke the link without an account. The key is shown once when the link is created; QuietLink stores only a SHA-256 hash of the key, not the key itself. If the key is lost, QuietLink cannot reveal it or issue a replacement for that link.</p>
+
+        <h2>Destination previews and QR codes</h2>
+        <p>When a creator enables destination preview, visitors see the destination domain and full URL on a QuietLink page before they choose to continue. QuietLink does not fetch the destination page to generate this preview. QR codes are generated locally in the browser from the short URL; the URL is not sent to a third-party QR generation service.</p>
         <h2>Analytics and application logs</h2>
         <p>QuietLink does not implement click counting, visitor profiles, analytics cookies, or a link-history dashboard. Its redirect code does not deliberately record visitor IP addresses, referrers, or click timestamps. The website does not load third-party analytics scripts.</p>
 
