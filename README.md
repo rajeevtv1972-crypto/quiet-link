@@ -12,7 +12,7 @@ QuietLink is a privacy-first URL shortener built for Cloudflare Pages Functions 
 - Expiration presets: 1 hour, 24 hours, 7 days, 30 days, custom duration (1 hour to 365 days), or never expire.
 - Cloudflare KV persists mappings and applies TTL for expiring links.
 - No click counts, visitor profiles, analytics cookies, or application-level access logs.
-- Persistent link records contain only the destination URL and optional expiry timestamp.
+- Each link record contains its destination URL, expiry timestamp, preview preference, and a hash of its private management key. The raw management key is never persisted.
 - Creation requests are capped at 8 KB and require JSON.
 - Cross-origin browser requests are limited to QuietLink, the documented Life of Lohibv integration, and HTTPS origins explicitly listed in `QUIETLINK_ALLOWED_ORIGINS`.
 - Best-effort in-memory throttling limits link creation to 10 attempts per minute per source IP hash within a Worker isolate. The source IP itself and throttle state are not written to KV or logs; this local throttle is not a globally coordinated edge limit.
