@@ -220,3 +220,19 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .manage-actions { display: grid; grid-template-columns: minmax(0,1fr); }
   .option-toggle { margin-top: 14px !important; }
 }
+
+
+/* Phase 2 fix: inline confirmation and QR output */
+.qr-code canvas, .qr-code img, .qr-code svg { display: block; width: 192px; height: 192px; max-width: 100%; object-fit: contain; image-rendering: pixelated; }
+.qr-code table { margin: auto; border-collapse: collapse; }
+.qr-code table td { padding: 0; border: 0; }
+.revoke-confirmation { margin: 12px 0 0; padding: 13px; border: 1px solid #f0dada; border-radius: 10px; background: #fff8f8; }
+.revoke-confirmation[hidden] { display: none; }
+.revoke-confirmation p { margin: 0 0 12px; color: #8b5660; font-size: 11px; line-height: 1.7; }
+.revoke-confirmation p strong { color: #9e3e4c; }
+.revoke-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.revoke-confirm-actions button { flex: 1 1 120px; }
+@media (max-width: 620px) {
+  .qr-code canvas, .qr-code img, .qr-code svg { width: 180px; height: 180px; }
+  .revoke-confirm-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+}
