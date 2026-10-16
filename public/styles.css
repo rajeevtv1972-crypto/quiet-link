@@ -179,3 +179,44 @@ h1 { margin: 21px 0 22px; font-size: clamp(45px, 5.6vw, 69px); line-height: 1.04
   .site-footer > span:nth-child(2), .site-footer > span:nth-child(3) { grid-row: auto; grid-column: auto; text-align: left; }
   .contact-email { font-size: 11px; }
 }
+
+/* Phase 2: safe previews, QR download, and account-free revocation */
+.option-toggle { display: flex !important; align-items: flex-start; gap: 11px; margin: 17px 0 0 !important; padding: 13px 14px; border: 1px solid #e6e8f2; border-radius: 11px; background: #fafaff; cursor: pointer; }
+.option-toggle input { flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; accent-color: #6657d9; }
+.option-toggle-copy { display: grid; gap: 4px; }
+.option-toggle-copy strong { font-size: 11px; line-height: 1.4; font-weight: 750; color: #39435b; }
+.option-toggle-copy small { font-size: 10px; line-height: 1.6; color: #8991a5; font-weight: 450; }
+.result-tools { display: grid; grid-template-columns: minmax(0,.88fr) minmax(0,1.12fr); gap: 12px; margin-top: 18px; }
+.result-tool-card { min-width: 0; padding: 15px; border: 1px solid #e4e7f0; border-radius: 12px; background: #fff; }
+.tool-heading { display: flex; align-items: flex-start; gap: 9px; }
+.tool-heading h3 { margin: 0; color: #2d374f; font-size: 12px; line-height: 1.5; }
+.tool-heading p { margin: 2px 0 0; color: #9098aa; font-size: 10px; line-height: 1.5; }
+.tool-icon { flex: 0 0 28px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: #eeecff; color: #6e62d1; font-size: 19px; font-weight: 800; }
+.qr-code { min-height: 192px; display: grid; place-items: center; margin: 15px 0 13px; padding: 8px; border: 1px dashed #e2e5f0; border-radius: 10px; background: #fff; overflow: hidden; }
+.qr-code canvas, .qr-code img { display: block; width: 192px; height: 192px; max-width: 100%; object-fit: contain; image-rendering: pixelated; }
+.qr-code:empty::after { content: "QR code will appear here"; color: #a0a6b5; font-size: 10px; }
+.secondary-button, .danger-button { display: inline-flex; align-items: center; justify-content: center; min-height: 37px; padding: 8px 11px; border: 1px solid #e0e3ee; border-radius: 9px; background: #fff; color: #57627b; font-size: 10px; line-height: 1.4; font-weight: 750; text-align: center; }
+.secondary-button:hover { border-color: #c9c4f2; background: #faf9ff; color: #6356cc; }
+.secondary-button:disabled, .danger-button:disabled { opacity: .5; cursor: not-allowed; }
+.danger-button { border-color: #f0dada; background: #fff8f8; color: #af4d59; }
+.danger-button:hover { border-color: #e5bfc4; background: #fff0f1; }
+.qr-tool > .secondary-button { width: 100%; }
+.management-warning { margin: 13px 0 12px; padding: 10px; border: 1px solid #f3e3c7; border-radius: 9px; background: #fff9ef; color: #8a7040; font-size: 10px; line-height: 1.65; }
+.management-warning strong { color: #795d2b; }
+.management-label { display: block; margin: 0 0 6px !important; font-size: 10px !important; }
+.management-token-row { display: flex; align-items: center; gap: 8px; }
+.management-token { width: 100%; min-width: 0; height: 37px; padding: 0 9px; border: 1px solid #e1e4ef; border-radius: 8px; background: #fafaff; color: #4b5570; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
+.management-help { margin: 7px 0 12px !important; color: #939bad !important; font-size: 9px !important; line-height: 1.6 !important; }
+.manage-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.manage-actions .secondary-button, .manage-actions .danger-button { flex: 1 1 auto; }
+.tool-message { margin: 9px 0 0 !important; color: #558d79 !important; font-size: 10px !important; line-height: 1.6 !important; overflow-wrap: anywhere; }
+.revoked-state { margin: 12px 0 0 !important; padding: 12px; border-radius: 9px; background: #f1faf5; color: #4b8c70 !important; font-size: 11px !important; line-height: 1.65 !important; }
+.revoked-link { color: #9a6170 !important; text-decoration: line-through !important; pointer-events: none; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 620px) {
+  .result-tools { grid-template-columns: minmax(0,1fr); }
+  .qr-code { min-height: 180px; }
+  .qr-code canvas, .qr-code img { width: 180px; height: 180px; }
+  .manage-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+  .option-toggle { margin-top: 14px !important; }
+}
