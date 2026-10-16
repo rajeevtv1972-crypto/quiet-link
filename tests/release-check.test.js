@@ -103,9 +103,13 @@ test("security contact file and policy use the public contact address", async ()
   ]);
   const email = "contactussiteinfotechdesk@gmail.com";
   assert.ok(securityTxt.includes("Contact: mailto:" + email));
-  assert.ok(securityTxt.includes("Expires:"));
+  const expiry = securityTxt.match(/^Expires:\s*(.+)$/mi)?.[1];
+  assert.ok(expiry, "security.txt must declare an expiry");
+  assert.ok(Number.isFinite(Date.parse(expiry)) && Date.parse(expiry) > Date.now(), "security.txt expiry must be in the future");
   assert.ok(securityTxt.includes("Canonical: https://quiet-link.pages.dev/.well-known/security.txt"));
   assert.ok(securityPolicy.includes(email));
+  const robots = await readFile(resolve(publicRoot, "robots.txt"), "utf8");
+  assert.match(robots, /Allow:\s*\/\.well-known\/security\.txt/i, "security.txt must remain explicitly discoverable to compliant crawlers");
 });
 
 test("public assets do not ship Monetag references or ad scripts", async () => {
