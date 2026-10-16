@@ -10,8 +10,8 @@
   <title>QuietLink — Short links, less footprint</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/qrcode.min.js" defer></script>
-  <script src="/app.js" defer></script>
+  <script src="/qrcode-phase2.min.js" defer></script>
+  <script src="/app-phase2.js" defer></script>
 </head>
 <body>
   <div class="page-shell">
@@ -135,6 +135,13 @@
                   <div class="manage-actions">
                     <button id="copy-management-button" class="secondary-button" type="button">Copy management key</button>
                     <button id="revoke-button" class="danger-button" type="button">Revoke link</button>
+                  </div>
+                </div>
+                <div id="revoke-confirmation" class="revoke-confirmation" hidden>
+                  <p><strong>Revoke this link?</strong> Anyone using it will no longer be redirected after the change propagates.</p>
+                  <div class="revoke-confirm-actions">
+                    <button id="cancel-revoke-button" class="secondary-button" type="button">Keep link</button>
+                    <button id="confirm-revoke-button" class="danger-button" type="button">Yes, revoke link</button>
                   </div>
                 </div>
                 <p id="revoke-message" class="tool-message" role="status" aria-live="polite"></p>
