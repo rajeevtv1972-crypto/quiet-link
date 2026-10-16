@@ -20,6 +20,9 @@ function getCorsPolicy(request, url, env) {
   let normalizedOrigin;
   try {
     normalizedOrigin = new URL(origin).origin;
+    if (normalizedOrigin === "null" || origin !== normalizedOrigin) {
+      return { allowed: false, headers: {} };
+    }
   } catch {
     return { allowed: false, headers: {} };
   }
@@ -35,7 +38,10 @@ function getCorsPolicy(request, url, env) {
       const candidate = item.trim();
       if (!candidate) continue;
       try {
-        allowed.add(new URL(candidate).origin);
+        const parsed = new URL(candidate);
+        if (parsed.protocol === "https:" && parsed.origin !== "null") {
+          allowed.add(parsed.origin);
+        }
       } catch {
         // Ignore malformed configuration entries rather than breaking link creation.
       }
