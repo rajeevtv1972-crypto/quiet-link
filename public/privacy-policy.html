@@ -31,7 +31,7 @@
       <div class="legal-card">
         <p><strong>Last updated:</strong> October 16, 2026</p>
         <h2>Information stored to create links</h2>
-        <p>When you create a short link, QuietLink stores the destination URL and an expiry timestamp if you choose an expiry. A random short code points to that record. QuietLink does not ask for your name, email address, password, or account registration.</p>
+        <p>When you create a short link, QuietLink stores the destination URL, whether a destination preview is required, an expiry timestamp if you choose an expiry, and a hash of a private management key used to revoke the link. A random short code points to that record. QuietLink does not ask for your name, email address, password, or account registration.</p>
         <p>New links also have a private management key so the creator can revoke the link without an account. The key is shown once when the link is created; QuietLink stores only a SHA-256 hash of the key, not the key itself. If the key is lost, QuietLink cannot reveal it or issue a replacement for that link.</p>
 
         <h2>Destination previews and QR codes</h2>
