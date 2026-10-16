@@ -1,3 +1,4 @@
+/* QuietLink Phase 2 asset build: 2026-10-16. Refresh this file by deploying the current main branch. */
 const form = document.querySelector("#shorten-form");
 const urlInput = document.querySelector("#long-url");
 const expirySelect = document.querySelector("#expiry");
@@ -23,6 +24,9 @@ const showManagementButton = document.querySelector("#show-management-button");
 const revokeButton = document.querySelector("#revoke-button");
 const revokeMessage = document.querySelector("#revoke-message");
 const revokedState = document.querySelector("#revoked-state");
+const revokeConfirmation = document.querySelector("#revoke-confirmation");
+const confirmRevokeButton = document.querySelector("#confirm-revoke-button");
+const cancelRevokeButton = document.querySelector("#cancel-revoke-button");
 
 let activeCode = null;
 let activeManagementToken = null;
@@ -93,6 +97,7 @@ function resetManagementState() {
   showManagementButton.textContent = "Show key";
   managementControls.hidden = false;
   revokedState.hidden = true;
+  revokeConfirmation.hidden = true;
   revokeMessage.textContent = "";
   revokeButton.disabled = false;
   copyManagementButton.disabled = false;
@@ -101,10 +106,11 @@ function resetManagementState() {
 
 function renderQr(shortLink) {
   qrContainer.replaceChildren();
+  downloadQrButton.disabled = true;
+
   if (typeof QRCode !== "function") {
-    qrContainer.textContent = "QR generation is unavailable in this browser. You can still copy the short link.";
-    downloadQrButton.disabled = true;
-    return;
+    qrContainer.textContent = "QR generation didn't load. Refresh the page or copy the short link.";
+    return false;
   }
 
   try {
@@ -116,10 +122,21 @@ function renderQr(shortLink) {
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.M
     });
+
+    // QRCode.js creates its drawing synchronously. Check that visible output exists
+    // before enabling the download action; don't report success on an empty panel.
+    const drawing = qrContainer.querySelector("canvas, svg, img, table");
+    if (!drawing) {
+      qrContainer.textContent = "The QR image couldn't be drawn. You can still copy the short link.";
+      return false;
+    }
+
+    qrContainer.dataset.ready = "true";
     downloadQrButton.disabled = false;
+    return true;
   } catch {
-    qrContainer.textContent = "Couldn't make a QR code for this link.";
-    downloadQrButton.disabled = true;
+    qrContainer.textContent = "The QR image couldn't be drawn. You can still copy the short link.";
+    return false;
   }
 }
 
@@ -184,8 +201,13 @@ form.addEventListener("submit", async (event) => {
       throw new Error(data.error || "We couldn't create that link. Please try again.");
     }
 
+    if (!data.code || !data.shortUrl) {
+      throw new Error("QuietLink returned an incomplete response. Please refresh the page and try again.");
+    }
     activeCode = data.code;
-    activeManagementToken = data.managementToken || null;
+    activeManagementToken = typeof data.managementToken === "string" && /^[a-f0-9]{64}$/i.test(data.managementToken)
+      ? data.managementToken
+      : null;
     shortUrl.href = data.shortUrl;
     shortUrl.textContent = data.shortUrl;
     shortUrl.classList.remove("revoked-link");
@@ -196,6 +218,9 @@ form.addEventListener("submit", async (event) => {
     revokeButton.disabled = !activeManagementToken;
     revokeButton.hidden = !activeManagementToken;
     renderQr(data.shortUrl);
+    if (!activeManagementToken) {
+      revokeMessage.textContent = "This deployment didn't return a management key. Refresh the page after the latest deployment finishes, then create a new link to enable revocation.";
+    }
     resultPanel.hidden = false;
     copyButton.disabled = false;
     shareButton.disabled = false;
@@ -236,7 +261,12 @@ showManagementButton.addEventListener("click", () => {
 downloadQrButton.addEventListener("click", () => {
   const canvas = qrContainer.querySelector("canvas");
   const image = qrContainer.querySelector("img");
-  const imageUrl = canvas ? canvas.toDataURL("image/png") : image?.src;
+  let imageUrl = null;
+  try {
+    imageUrl = canvas ? canvas.toDataURL("image/png") : image?.src;
+  } catch {
+    imageUrl = null;
+  }
   if (!imageUrl || !imageUrl.startsWith("data:image/")) {
     copyMessage.textContent = "The QR image isn't ready yet. Please try again.";
     return;
@@ -251,15 +281,31 @@ downloadQrButton.addEventListener("click", () => {
   copyMessage.textContent = "QR code downloaded as PNG.";
 });
 
-revokeButton.addEventListener("click", async () => {
+revokeButton.addEventListener("click", () => {
   if (!activeCode || !activeManagementToken) {
-    revokeMessage.textContent = "The management key is unavailable. This link cannot be revoked from this screen.";
+    revokeMessage.textContent = "The management key is unavailable. Create a new link after the latest deployment is live.";
     return;
   }
-  if (!window.confirm("Revoke this short link? Anyone using it will no longer be redirected after the change propagates.")) {
+  revokeConfirmation.hidden = false;
+  revokeMessage.textContent = "Confirm below to permanently revoke this short link.";
+  confirmRevokeButton.focus();
+});
+
+cancelRevokeButton.addEventListener("click", () => {
+  revokeConfirmation.hidden = true;
+  revokeMessage.textContent = "Revocation cancelled. Your short link is still active.";
+  revokeButton.focus();
+});
+
+confirmRevokeButton.addEventListener("click", async () => {
+  if (!activeCode || !activeManagementToken) {
+    revokeMessage.textContent = "The management key is unavailable. Create a new link after the latest deployment is live.";
+    revokeConfirmation.hidden = true;
     return;
   }
 
+  confirmRevokeButton.disabled = true;
+  cancelRevokeButton.disabled = true;
   revokeButton.disabled = true;
   revokeMessage.textContent = "Revoking link…";
   try {
@@ -273,22 +319,28 @@ revokeButton.addEventListener("click", async () => {
       throw new Error(data.error || "We couldn't revoke this link. Please try again.");
     }
 
+    const priorUrl = shortUrl.textContent;
     shortUrl.removeAttribute("href");
-    shortUrl.textContent = "Revoked: " + shortUrl.textContent;
+    shortUrl.textContent = "Revoked: " + priorUrl;
     shortUrl.classList.add("revoked-link");
     copyButton.disabled = true;
     shareButton.disabled = true;
     downloadQrButton.disabled = true;
     qrContainer.replaceChildren();
+    qrContainer.dataset.ready = "false";
     managementControls.hidden = true;
+    revokeConfirmation.hidden = true;
     revokedState.hidden = false;
-    revokeMessage.textContent = data.message || "Link revoked.";
+    revokeMessage.textContent = "Link revoked. Cloudflare KV deletion may take a short time to propagate.";
     activeCode = null;
     activeManagementToken = null;
     managementTokenInput.value = "";
   } catch (error) {
     revokeMessage.textContent = error.message || "Revocation failed. Please try again.";
     revokeButton.disabled = false;
+  } finally {
+    confirmRevokeButton.disabled = false;
+    cancelRevokeButton.disabled = false;
   }
 });
 
