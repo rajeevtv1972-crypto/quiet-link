@@ -74,8 +74,11 @@ test("creates and stores a short link with minimal mapping data", async () => {
   assert.equal(result.shortUrl, "https://quiet-link.pages.dev/" + result.code);
   assert.equal(typeof result.expiresAt, "number");
   const stored = JSON.parse(kv.items.get(result.code));
-  assert.deepEqual(Object.keys(stored).sort(), ["expiresAt", "url"]);
+  assert.deepEqual(Object.keys(stored).sort(), ["expiresAt", "managementTokenHash", "preview", "url"]);
   assert.equal(stored.url, "https://example.com/path");
+  assert.equal(stored.preview, false);
+  assert.match(result.managementToken, /^[a-f0-9]{64}$/);
+  assert.notEqual(stored.managementTokenHash, result.managementToken);
   assert.match(response.headers.get("Access-Control-Allow-Origin"), /^https:\/\/quiet-link\.pages\.dev$/);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
 });
@@ -274,4 +277,104 @@ test("best-effort throttling rejects the 11th create from the same source in one
 
   assert.equal(blocked.status, 429);
   assert.equal(blocked.headers.get("Retry-After") !== null, true);
+});
+
+
+test("returns a destination preview page when the creator enables preview", async () => {
+  const kv = new MemoryKV();
+  const createdResponse = await call(makeRequest({
+    headers: jsonHeaders(),
+    body: JSON.stringify({ url: "https://example.com/a?x=1&y=2", expiresInSeconds: 3600, preview: true })
+  }), { LINKS: kv });
+  assert.equal(createdResponse.status, 201);
+  const created = await createdResponse.json();
+  assert.equal(created.previewRequired, true);
+
+  const previewResponse = await call(makeRequest({
+    method: "GET",
+    url: "https://quiet-link.pages.dev/" + created.code
+  }), { LINKS: kv });
+
+  assert.equal(previewResponse.status, 200);
+  assert.match(previewResponse.headers.get("Content-Type"), /text\/html/);
+  assert.equal(previewResponse.headers.get("Referrer-Policy"), "no-referrer");
+  const previewHtml = await previewResponse.text();
+  assert.match(previewHtml, /DESTINATION PREVIEW/);
+  assert.match(previewHtml, /example\.com/);
+  assert.match(previewHtml, /Continue to destination/);
+  assert.match(previewHtml, /https:\/\/example\.com\/a\?x=1&amp;y=2/);
+  assert.equal(previewResponse.headers.get("Location"), null);
+});
+
+test("creates management tokens as hashes and revokes only with the correct token", async () => {
+  const kv = new MemoryKV();
+  const createResponse = await call(makeRequest({
+    headers: jsonHeaders(),
+    body: validBody()
+  }), { LINKS: kv });
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+  const storedValue = kv.items.get(created.code);
+  const stored = JSON.parse(storedValue);
+  assert.equal(stored.managementTokenHash.length, 64);
+  assert.notEqual(stored.managementTokenHash, created.managementToken);
+
+  const wrongResponse = await call(makeRequest({
+    url: "https://quiet-link.pages.dev/api/revoke",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ code: created.code, managementToken: "0".repeat(64) })
+  }), { LINKS: kv });
+  assert.equal(wrongResponse.status, 404);
+  assert.equal(kv.items.has(created.code), true);
+
+  const revokeResponse = await call(makeRequest({
+    url: "https://quiet-link.pages.dev/api/revoke",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ code: created.code, managementToken: created.managementToken })
+  }), { LINKS: kv });
+  assert.equal(revokeResponse.status, 200);
+  const revokeResult = await revokeResponse.json();
+  assert.equal(revokeResult.ok, true);
+  assert.equal(kv.items.has(created.code), false);
+
+  const missingResponse = await call(makeRequest({
+    method: "GET",
+    url: "https://quiet-link.pages.dev/" + created.code
+  }), { LINKS: kv });
+  assert.equal(missingResponse.status, 404);
+});
+
+test("revocation is rejected from unapproved origins", async () => {
+  const kv = new MemoryKV();
+  const createResponse = await call(makeRequest({
+    headers: jsonHeaders(),
+    body: validBody()
+  }), { LINKS: kv });
+  const created = await createResponse.json();
+
+  const response = await call(makeRequest({
+    url: "https://quiet-link.pages.dev/api/revoke",
+    headers: jsonHeaders("https://untrusted.example"),
+    body: JSON.stringify({ code: created.code, managementToken: created.managementToken })
+  }), { LINKS: kv });
+
+  assert.equal(response.status, 403);
+  assert.equal(kv.items.has(created.code), true);
+});
+
+test("legacy links without a management key cannot be revoked by guessing", async () => {
+  const kv = new MemoryKV();
+  kv.items.set("legacy23", JSON.stringify({
+    url: "https://example.com/destination",
+    expiresAt: null
+  }));
+
+  const response = await call(makeRequest({
+    url: "https://quiet-link.pages.dev/api/revoke",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ code: "legacy23", managementToken: "a".repeat(64) })
+  }), { LINKS: kv });
+
+  assert.equal(response.status, 409);
+  assert.equal(kv.items.has("legacy23"), true);
 });
