@@ -1,0 +1,5 @@
+Contact: mailto:contactussiteinfotechdesk@gmail.com
+Expires: 2027-10-16T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://quiet-link.pages.dev/.well-known/security.txt
+Policy: https://github.com/rajeevtv1972-crypto/quiet-link/blob/main/SECURITY.md
