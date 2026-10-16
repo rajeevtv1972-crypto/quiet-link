@@ -3,6 +3,178 @@ const CODE_LENGTH = 8;
 const MAX_URL_LENGTH = 2048;
 const MAX_EXPIRY_SECONDS = 365 * 24 * 60 * 60;
 
+const MAX_REQUEST_BYTES = 8192;
+const CREATE_LIMIT_WINDOW_MS = 60_000;
+const CREATE_LIMIT_MAX = 10;
+const MAX_RATE_LIMIT_KEYS = 4096;
+
+// Best-effort per-isolate limiter. The source IP is hashed with the current minute
+// and only the short-lived hash/count are kept in memory; no IP or click event is stored.
+const CREATE_RATE_LIMITS = new Map();
+let rateLimitChecks = 0;
+
+function getCorsPolicy(request, url, env) {
+  const origin = request.headers.get("Origin");
+  if (!origin) return { allowed: true, headers: {} };
+
+  let normalizedOrigin;
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch {
+    return { allowed: false, headers: {} };
+  }
+
+  const allowed = new Set([
+    url.origin,
+    "https://life-of-lohibv.pages.dev"
+  ]);
+
+  // Additional integrations can be configured as a comma-separated Pages variable.
+  if (typeof env.QUIETLINK_ALLOWED_ORIGINS === "string") {
+    for (const item of env.QUIETLINK_ALLOWED_ORIGINS.split(",")) {
+      const candidate = item.trim();
+      if (!candidate) continue;
+      try {
+        allowed.add(new URL(candidate).origin);
+      } catch {
+        // Ignore malformed configuration entries rather than breaking link creation.
+      }
+    }
+  }
+
+  if (!allowed.has(normalizedOrigin)) {
+    return { allowed: false, headers: {} };
+  }
+
+  return {
+    allowed: true,
+    headers: {
+      "Access-Control-Allow-Origin": normalizedOrigin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Max-Age": "600",
+      "Vary": "Origin"
+    }
+  };
+}
+
+async function readJsonPayload(request) {
+  const contentType = (request.headers.get("Content-Type") || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+
+  if (contentType !== "application/json") {
+    return { ok: false, status: 415, error: "Send the request as application/json." };
+  }
+
+  const contentLength = request.headers.get("Content-Length");
+  if (contentLength !== null) {
+    const declaredLength = Number(contentLength);
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+      return { ok: false, status: 413, error: "The request is too large. Keep it under 8 KB." };
+    }
+  }
+
+  if (!request.body) {
+    return { ok: false, status: 400, error: "Send a valid JSON object." };
+  }
+
+  let reader;
+  try {
+    reader = request.body.getReader();
+    const chunks = [];
+    let totalBytes = 0;
+
+    while (true) {
+      const result = await reader.read();
+      if (result.done) break;
+      totalBytes += result.value.byteLength;
+
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        try { await reader.cancel(); } catch { /* Body is already rejected. */ }
+        return { ok: false, status: 413, error: "The request is too large. Keep it under 8 KB." };
+      }
+      chunks.push(result.value);
+    }
+
+    const body = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    let payload;
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
+      payload = JSON.parse(text);
+    } catch {
+      return { ok: false, status: 400, error: "Send a valid JSON object." };
+    }
+
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      return { ok: false, status: 400, error: "Send a valid JSON object." };
+    }
+    return { ok: true, payload };
+  } catch {
+    try { if (reader) await reader.cancel(); } catch { /* Ignore reader cleanup errors. */ }
+    return { ok: false, status: 400, error: "The request body could not be read. Please try again." };
+  }
+}
+
+async function checkCreateRateLimit(request) {
+  const sourceIp = request.headers.get("CF-Connecting-IP");
+  // Cloudflare supplies CF-Connecting-IP on live requests. Skip this local-only
+  // fallback when it is absent rather than merging unrelated local clients.
+  if (!sourceIp) return { allowed: true, retryAfter: 0 };
+
+  const now = Date.now();
+  const bucket = Math.floor(now / CREATE_LIMIT_WINDOW_MS);
+  let digest;
+
+  try {
+    digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(sourceIp + ":" + bucket)
+    );
+  } catch {
+    return { allowed: false, retryAfter: 60, unavailable: true };
+  }
+
+  const bytes = new Uint8Array(digest);
+  let key = "";
+  for (const byte of bytes) key += byte.toString(16).padStart(2, "0");
+  key = "create:" + key;
+
+  const current = CREATE_RATE_LIMITS.get(key);
+  if (current && current.count >= CREATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      retryAfter: Math.max(1, Math.ceil(((bucket + 1) * CREATE_LIMIT_WINDOW_MS - now) / 1000))
+    };
+  }
+
+  if (!current) {
+    if ((++rateLimitChecks % 64) === 0 || CREATE_RATE_LIMITS.size >= MAX_RATE_LIMIT_KEYS) {
+      for (const [storedKey, value] of CREATE_RATE_LIMITS) {
+        if (value.expiresAt <= now) CREATE_RATE_LIMITS.delete(storedKey);
+      }
+    }
+    if (CREATE_RATE_LIMITS.size >= MAX_RATE_LIMIT_KEYS) {
+      return { allowed: false, retryAfter: 60 };
+    }
+    CREATE_RATE_LIMITS.set(key, {
+      count: 1,
+      expiresAt: (bucket + 1) * CREATE_LIMIT_WINDOW_MS
+    });
+  } else {
+    current.count += 1;
+  }
+
+  return { allowed: true, retryAfter: 0 };
+}
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -121,14 +293,11 @@ export async function onRequest(context) {
   const path = url.pathname;
 
   if (path === "/api/shorten") {
-    // Allow other sites to use QuietLink's public anonymous-shortening API.
-    // No cookies or credentials are used by this endpoint.
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400"
-    };
+    const cors = getCorsPolicy(request, url, env);
+    if (!cors.allowed) {
+      return json({ error: "This origin is not allowed to use QuietLink." }, 403);
+    }
+    const corsHeaders = cors.headers;
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
@@ -143,43 +312,58 @@ export async function onRequest(context) {
       return json({ error: "Link storage isn't connected yet. Bind a Cloudflare KV namespace named LINKS, then redeploy." }, 503, corsHeaders);
     }
 
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
-      return json({ error: "Send a valid JSON request." }, 400, corsHeaders);
+    const rateLimit = await checkCreateRateLimit(request);
+    if (!rateLimit.allowed) {
+      return json({
+        error: rateLimit.unavailable
+          ? "Link creation is temporarily unavailable. Please try again shortly."
+          : "Too many links have been created from this network. Wait a moment and try again."
+      }, rateLimit.unavailable ? 503 : 429, {
+        ...corsHeaders,
+        "Retry-After": String(rateLimit.retryAfter || 60)
+      });
     }
 
-    const checkedUrl = validateDestination(payload?.url);
+    const parsedBody = await readJsonPayload(request);
+    if (!parsedBody.ok) {
+      return json({ error: parsedBody.error }, parsedBody.status, corsHeaders);
+    }
+    const payload = parsedBody.payload;
+
+    const checkedUrl = validateDestination(payload.url);
     if (checkedUrl.error) return json({ error: checkedUrl.error }, 400, corsHeaders);
 
-    const expiry = validateExpiry(payload?.expiresInSeconds);
+    const expiry = validateExpiry(payload.expiresInSeconds);
     if (expiry.error) return json({ error: expiry.error }, 400, corsHeaders);
 
     // No visitor identifier, referrer, click count, or creation timestamp is stored.
     // Only the destination and expiry needed to perform the redirect are persisted.
     let code = "";
     let stored = false;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      code = createCode();
-      const existing = await env.LINKS.get(code);
-      if (existing !== null) continue;
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        code = createCode();
+        const existing = await env.LINKS.get(code);
+        if (existing !== null) continue;
 
-      const value = JSON.stringify({
-        url: checkedUrl.destination.href,
-        expiresAt: expiry.expiresAt
-      });
-      const options = expiry.ttl ? { expiration: expiry.ttl } : undefined;
-      await env.LINKS.put(code, value, options);
-      stored = true;
-      break;
+        const value = JSON.stringify({
+          url: checkedUrl.destination.href,
+          expiresAt: expiry.expiresAt
+        });
+        const options = expiry.ttl ? { expiration: expiry.ttl } : undefined;
+        await env.LINKS.put(code, value, options);
+        stored = true;
+        break;
+      }
+    } catch {
+      return json({ error: "Link storage is temporarily unavailable. Please try again shortly." }, 503, corsHeaders);
     }
 
     if (!stored) return json({ error: "We couldn't reserve a short code. Please try again." }, 503, corsHeaders);
 
     return json({
       code,
-      shortUrl: `${url.origin}/${code}`,
+      shortUrl: url.origin + "/" + code,
       expiresAt: expiry.expiresAt
     }, 201, corsHeaders);
   }
