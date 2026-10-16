@@ -5,6 +5,9 @@ QuietLink is a privacy-first URL shortener built for Cloudflare Pages Functions 
 ## Features
 
 - Random 8-character short codes.
+- Optional destination preview page that shows the destination domain and full URL before continuing.
+- Account-free revocation: each new link gets a one-time 256-bit management key; only its SHA-256 digest is stored.
+- QR codes generated in the visitor's browser and downloaded as PNG without sending destinations to a third-party QR service.
 - Redirects to HTTP(S) destinations.
 - Expiration presets: 1 hour, 24 hours, 7 days, 30 days, custom duration (1 hour to 365 days), or never expire.
 - Cloudflare KV persists mappings and applies TTL for expiring links.
@@ -19,7 +22,7 @@ QuietLink is a privacy-first URL shortener built for Cloudflare Pages Functions 
 
 ## Deploy using GitHub + Cloudflare Pages
 
-1. In Cloudflare, open **Workers & Pages** and create a **Pages** project by connecting the GitHub repository `rajeevtv1972-crypto/anonymous-url-shortener`.
+1. In Cloudflare, open **Workers & Pages** and create a **Pages** project by connecting the GitHub repository `rajeevtv1972-crypto/quiet-link`.
 2. Set the production branch to `main`.
 3. There is no build step. Set the build command to blank (or no command) and the build output directory to `public`.
 4. Create a Cloudflare **Workers KV** namespace, for example `quietlink-links`.
@@ -45,16 +48,17 @@ This provides a local development binding. If you need durable local test data, 
 - `/contact.html` — contact information (`contactussiteinfotechdesk@gmail.com`)
 - `/privacy-policy.html` — full privacy policy
 - `/privacy.html` — legacy path that redirects to the privacy policy
-- `POST /api/shorten` — validate and store a destination mapping (same-origin by default, plus the documented Life of Lohibv origin and optional HTTPS origins configured in `QUIETLINK_ALLOWED_ORIGINS`)
+- `POST /api/shorten` — validate and store a destination mapping; optional JSON `preview: true` enables the destination interstitial. On creation, a random management key is returned once; store it securely.
+- `POST /api/revoke` — revoke a link with JSON `{ "code": "…", "managementToken": "…" }`. The token is never stored in plaintext. Links made before this feature won't have a management key and cannot be revoked through this route.
 - `/<8-character-code>` — redirect to a saved destination
 
-The `functions/[[path]].js` Pages Function passes static assets through to Pages and handles the API and short-code redirects.
+The `functions/[[path]].js` Pages Function passes static assets through to Pages and handles creation, revocation, direct redirects, and optional destination previews. `public/qrcode.min.js` is a locally hosted QRCode.js build under the MIT license; see `public/QR-CODE-LICENSE.txt`.
 
 ## Privacy scope and limitations
 
 QuietLink doesn't collect identifiers or click events in its application code. Cloudflare necessarily processes network requests and its platform-level handling depends on Cloudflare's own policies and settings. A short link is not an anonymity proxy: the destination can still receive network information from the person opening it.
 
-“Never expire” links remain in KV until removed or the service changes. Expiring links are given a KV TTL and are also checked at redirect time. Expiration does not guarantee immediate physical deletion from every underlying storage layer.
+“Never expire” links remain in KV until removed or the service changes. Expiring links are given a KV TTL and are also checked at redirect time. Expiration does not guarantee immediate physical deletion from every underlying storage layer. Link revocation deletes the mapping from KV, but KV deletion may take a short time to propagate to every Cloudflare location.
 
 ## Phase 1 abuse protection
 
