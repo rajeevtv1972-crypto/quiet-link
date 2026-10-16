@@ -188,6 +188,7 @@ form.addEventListener("submit", async (event) => {
     activeManagementToken = data.managementToken || null;
     shortUrl.href = data.shortUrl;
     shortUrl.textContent = data.shortUrl;
+    shortUrl.classList.remove("revoked-link");
     expirySummary.textContent = readableExpiry(data.expiresAt);
     managementTokenInput.value = activeManagementToken || "";
     showManagementButton.hidden = !activeManagementToken;
