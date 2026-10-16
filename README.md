@@ -73,3 +73,11 @@ Public URL shorteners can be abused for phishing, so keep destination validation
 ## License
 
 Choose a license before accepting external contributions or redistributing the code.
+
+## Phase 3: release readiness
+
+The final phase adds regression checks for the deployed frontend and static security settings, a private vulnerability-reporting policy, and a machine-readable contact at `/.well-known/security.txt`. See [the Phase 3 release checklist](PHASE-3-RELEASE-CHECKLIST.md) for the production configuration and smoke-test gates, and [SECURITY.md](SECURITY.md) for safe vulnerability reporting.
+
+The automated tests run with `npm test` and on every push to `main` or pull request through GitHub Actions. They check API behavior, static assets, DOM selector consistency, frontend file synchronization, security headers, and the absence of Monetag references in public assets.
+
+**Production limitation:** the in-memory abuse throttle is best-effort, not a globally coordinated edge limit. A stronger Cloudflare zone-level limit requires a domain/zone you control and dashboard configuration; a source-code deployment by itself cannot configure shared `.pages.dev` zone rules.
