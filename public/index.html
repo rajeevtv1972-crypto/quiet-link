@@ -10,6 +10,7 @@
   <title>QuietLink — Short links, less footprint</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/qrcode.min.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -91,6 +92,12 @@
               <span class="custom-hint">1 hour to 365 days</span>
             </div>
 
+
+            <label class="option-toggle" for="destination-preview">
+              <input id="destination-preview" name="preview" type="checkbox" checked>
+              <span class="option-toggle-copy"><strong>Show a destination preview</strong><small>Visitors can check the full URL before continuing.</small></span>
+            </label>
+
             <button class="primary-button" id="submit-button" type="submit">
               <span class="button-label">Create short link</span>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -109,6 +116,30 @@
             <div class="result-footer">
               <span id="expiry-summary"></span>
               <button id="share-button" class="text-button" type="button">Share link ↗</button>
+            </div>
+
+            <div id="result-tools" class="result-tools">
+              <section class="result-tool-card qr-tool">
+                <div class="tool-heading"><span class="tool-icon">▦</span><div><h3>Scan or save a QR code</h3><p>Generated right here in your browser.</p></div></div>
+                <div id="qr-code" class="qr-code" aria-label="QR code for your short link"></div>
+                <button id="download-qr-button" class="secondary-button" type="button">Download QR as PNG</button>
+              </section>
+
+              <section class="result-tool-card manage-tool">
+                <div class="tool-heading"><span class="tool-icon">⌁</span><div><h3>Manage this link</h3><p>Revoke it later without creating an account.</p></div></div>
+                <div id="management-controls">
+                  <p class="management-warning"><strong>Save your management key now.</strong> It is shown only once. Anyone who has it can revoke this link.</p>
+                  <label for="management-token" class="management-label">Private management key</label>
+                  <input id="management-token" class="management-token" type="password" readonly autocomplete="off" spellcheck="false" aria-describedby="management-help">
+                  <p id="management-help" class="management-help">Keep it private and store it separately from the short link.</p>
+                  <div class="manage-actions">
+                    <button id="copy-management-button" class="secondary-button" type="button">Copy management key</button>
+                    <button id="revoke-button" class="danger-button" type="button">Revoke link</button>
+                  </div>
+                </div>
+                <p id="revoke-message" class="tool-message" role="status" aria-live="polite"></p>
+                <p id="revoked-state" class="revoked-state" hidden><strong>Link revoked.</strong> It will stop redirecting as the deletion propagates through Cloudflare KV.</p>
+              </section>
             </div>
             <p id="copy-message" class="copy-message" role="status" aria-live="polite"></p>
           </section>
