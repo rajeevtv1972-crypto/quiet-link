@@ -83,15 +83,19 @@ test("creates and stores a short link with minimal mapping data", async () => {
   assert.equal(response.headers.get("Cache-Control"), "no-store");
 });
 
-test("allows the documented related site and supports configured origins", async () => {
-  const kv = new MemoryKV();
-  const response = await call(makeRequest({
-    headers: jsonHeaders("https://life-of-lohibv.pages.dev"),
-    body: validBody()
-  }), { LINKS: kv });
+test("allows Flirtuu's current and legacy domains and supports configured origins", async () => {
+  for (const origin of [
+    "https://flirtuu.pages.dev",
+    "https://life-of-lohibv.pages.dev"
+  ]) {
+    const response = await call(makeRequest({
+      headers: jsonHeaders(origin),
+      body: validBody()
+    }), { LINKS: new MemoryKV() });
 
-  assert.equal(response.status, 201);
-  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://life-of-lohibv.pages.dev");
+    assert.equal(response.status, 201);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+  }
 
   const custom = await call(makeRequest({
     headers: jsonHeaders("https://tools.example.org"),
@@ -115,13 +119,20 @@ test("rejects unapproved browser origins before storage writes", async () => {
   assert.equal(kv.items.size, 0);
 });
 
-test("handles preflight only for allowed origins", async () => {
+test("handles preflight for Flirtuu and blocks unapproved origins", async () => {
   const allowed = await call(makeRequest({
     method: "OPTIONS",
     headers: { Origin: "https://life-of-lohibv.pages.dev" }
   }), { LINKS: new MemoryKV() });
   assert.equal(allowed.status, 204);
   assert.equal(allowed.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
+
+  const flirtuu = await call(makeRequest({
+    method: "OPTIONS",
+    headers: { Origin: "https://flirtuu.pages.dev" }
+  }), { LINKS: new MemoryKV() });
+  assert.equal(flirtuu.status, 204);
+  assert.equal(flirtuu.headers.get("Access-Control-Allow-Origin"), "https://flirtuu.pages.dev");
 
   const blocked = await call(makeRequest({
     method: "OPTIONS",
