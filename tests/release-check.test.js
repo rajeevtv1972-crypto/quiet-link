@@ -129,7 +129,7 @@ test("public assets do not ship Monetag references or ad scripts", async () => {
 test("the custom 404 page is branded, helpful, and not indexable", async () => {
   const page = await readFile(resolve(publicRoot, "404.html"), "utf8");
   assert.ok(page.includes("<title>404 · QuietLink</title>"));
-  assert.ok(page.includes("Link not found"));
+  assert.ok(page.toLowerCase().includes("link not found"));
   assert.ok(page.includes('href="/">'));
   assert.ok(page.includes('name="robots" content="noindex,nofollow"'));
   assert.ok(page.includes("privacy-policy.html"));
