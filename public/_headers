@@ -13,3 +13,6 @@
 
 /.well-known/security.txt
   Cache-Control: public, max-age=86400
+
+/404.html
+  Cache-Control: no-cache, must-revalidate
