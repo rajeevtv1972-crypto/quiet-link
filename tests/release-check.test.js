@@ -124,3 +124,19 @@ test("public assets do not ship Monetag references or ad scripts", async () => {
     );
   }
 });
+
+
+test("the custom 404 page is branded, helpful, and not indexable", async () => {
+  const page = await readFile(resolve(publicRoot, "404.html"), "utf8");
+  assert.match(page, /<title>404 · QuietLink<\\/title>/i);
+  assert.match(page, /Link not found/i);
+  assert.match(page, /href="\\/">/i);
+  assert.match(page, /name="robots" content="noindex,nofollow"/i);
+  assert.match(page, /privacy-policy\\.html/i);
+});
+
+test("expired-link handling returns 404 and has no redirect response", async () => {
+  const worker = await readFile(resolve(repoRoot, "functions/[[path]].js"), "utf8");
+  assert.match(worker, /expired or has been removed and can no longer be opened\.", 404\)/);
+  assert.doesNotMatch(worker, /htmlPage\("This link has expired"[^;]*410\)/);
+});
