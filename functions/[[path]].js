@@ -29,6 +29,8 @@ function getCorsPolicy(request, url, env) {
 
   const allowed = new Set([
     url.origin,
+    // Flirtuu's current Pages domain; keep the older domain working too.
+    "https://flirtuu.pages.dev",
     "https://life-of-lohibv.pages.dev"
   ]);
 
