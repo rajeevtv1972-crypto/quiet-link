@@ -255,11 +255,11 @@ test("removes expired links and returns the branded 404 instead of redirecting",
   }), { LINKS: kv });
 
   assert.equal(response.status, 404);
-  assert.match(response.headers.get("Content-Type"), /text\\/html/i);
+  assert.ok(response.headers.get("Content-Type").includes("text/html"));
   assert.equal(response.headers.get("Location"), null);
   const body = await response.text();
-  assert.match(body, /<h1>Link not found<\\/h1>/);
-  assert.match(body, /expired or has been removed/i);
+  assert.ok(body.includes("<h1>Link not found</h1>"));
+  assert.ok(body.includes("expired or has been removed"));
   assert.equal(kv.items.has("expired1"), false);
 });
 
