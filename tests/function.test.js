@@ -243,7 +243,7 @@ test("redirects saved links without referrer leakage", async () => {
   assert.equal(response.headers.get("Cache-Control"), "no-store");
 });
 
-test("removes expired links and returns 410", async () => {
+test("removes expired links and returns the branded 404 instead of redirecting", async () => {
   const kv = new MemoryKV();
   kv.items.set("expired1", JSON.stringify({
     url: "https://example.com/destination",
@@ -254,7 +254,12 @@ test("removes expired links and returns 410", async () => {
     url: "https://quiet-link.pages.dev/expired1"
   }), { LINKS: kv });
 
-  assert.equal(response.status, 410);
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get("Content-Type"), /text\\/html/i);
+  assert.equal(response.headers.get("Location"), null);
+  const body = await response.text();
+  assert.match(body, /<h1>Link not found<\\/h1>/);
+  assert.match(body, /expired or has been removed/i);
   assert.equal(kv.items.has("expired1"), false);
 });
 
