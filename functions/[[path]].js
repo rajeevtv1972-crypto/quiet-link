@@ -548,7 +548,7 @@ export async function onRequest(context) {
   if (link.expiresAt !== null && (!Number.isFinite(link.expiresAt) || Date.now() >= link.expiresAt)) {
     // A read-time check makes expired links stop working even if KV cleanup lags.
     try { await env.LINKS.delete(code); } catch { /* no request details are logged */ }
-    return htmlPage("This link has expired", "The owner set an expiry for this short link, and that time has passed.", 410);
+    return htmlPage("Link not found", "This short link has expired or has been removed and can no longer be opened.", 404);
   }
 
   // Re-validate stored destinations before redirecting in case data was altered.
