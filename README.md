@@ -48,9 +48,10 @@ This provides a local development binding. If you need durable local test data, 
 - `/contact.html` — contact information (`contactussiteinfotechdesk@gmail.com`)
 - `/privacy-policy.html` — full privacy policy
 - `/privacy.html` — legacy path that redirects to the privacy policy
+- `/404.html` — branded not-found page for missing pages and unusable short links
 - `POST /api/shorten` — validate and store a destination mapping; optional JSON `preview: true` enables the destination interstitial. On creation, a random management key is returned once; store it securely.
 - `POST /api/revoke` — revoke a link with JSON `{ "code": "…", "managementToken": "…" }`. The token is never stored in plaintext. Links made before this feature won't have a management key and cannot be revoked through this route.
-- `/<8-character-code>` — redirect to a saved destination
+- `/<8-character-code>` — redirect to a saved destination, or show a branded HTTP 404 page when the link is missing, revoked, or expired
 
 The `functions/[[path]].js` Pages Function passes static assets through to Pages and handles creation, revocation, direct redirects, and optional destination previews. `public/qrcode.min.js` is a locally hosted QRCode.js build under the MIT license; see `public/QR-CODE-LICENSE.txt`.
 
